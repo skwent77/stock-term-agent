@@ -1,0 +1,30 @@
+
+.env
+.chroma_db/
+.venv/
+.uv-cache/
+work/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+
+# # Playwright
+# node_modules/
+# /test-results/
+# /playwright-report/
+# /blob-report/
+# /playwright/.cache/
+# /playwright/.auth/
+
+# venv/
+.python-version
+uv.lock
+# JetBrains
+.idea/
+
+# 로컬 전용 에이전트 설정
+.claude/settings.local.json

@@ -1,0 +1,7 @@
+fastmcp
+langchain
+langchain-mcp-adapters
+langchain-openai
+langchain-anthropic
+python-dotenv
+pandas
