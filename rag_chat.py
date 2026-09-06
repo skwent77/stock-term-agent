@@ -7,29 +7,13 @@
 """
 
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 import anthropic
 from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+
+from stock_terms import load_vectorstore
 
 load_dotenv()
-
-CHROMA_DIR = Path(__file__).parent / ".chroma_db"
-TERMS_FILE = Path(__file__).parent / "stock_terms.json"
-
-
-def load_vectorstore() -> Chroma:
-    print("임베딩 모델 로딩 중...")
-    embeddings = HuggingFaceEmbeddings(
-        model_name="paraphrase-multilingual-MiniLM-L12-v2",
-        model_kwargs={"device": "cpu"},
-    )
-    return Chroma(
-        persist_directory=str(CHROMA_DIR),
-        embedding_function=embeddings,
-    )
-
 
 def retrieve(vectorstore: Chroma, query: str, top_k: int = 3) -> list[dict]:
     """질문과 관련된 용어를 ChromaDB에서 검색"""
@@ -41,8 +25,9 @@ def retrieve(vectorstore: Chroma, query: str, top_k: int = 3) -> list[dict]:
             "term": m["term"],
             "english": m["english"],
             "category": m["category"],
-            "definition": m["definition"],
-            "example": m["example"],
+            "content": doc.page_content,
+            "source_name": m["source_name"],
+            "data_version": m["data_version"],
             "score": score,
         })
     return retrieved
@@ -54,8 +39,9 @@ def build_context(retrieved: list[dict]) -> str:
     for item in retrieved:
         lines.append(
             f"[{item['term']} / {item['english']}] ({item['category']})\n"
-            f"  정의: {item['definition']}\n"
-            f"  예시: {item['example']}"
+            f"{item['content']}\n"
+            f"출처: {item['source_name']}\n"
+            f"데이터 버전: {item['data_version']}"
         )
     return "\n\n".join(lines)
 
@@ -89,10 +75,7 @@ def main():
         print("오류: ANTHROPIC_API_KEY가 .env 파일에 없습니다.")
         return
 
-    if not CHROMA_DIR.exists():
-        print("ChromaDB가 없습니다. 먼저 stock_terms.py를 실행해 DB를 구축하세요.")
-        return
-
+    print("Chroma 서버와 임베딩 모델 로딩 중...")
     vectorstore = load_vectorstore()
     client = anthropic.Anthropic(api_key=api_key)
 

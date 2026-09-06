@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>한국어 주식 용어 AI</title>
+  <style>
+    :root { color-scheme: dark; --ink: #f4f7f5; --muted: #9ba9a1; --line: #2c3832; --accent: #68e0a5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--ink); background: #0c1210; font-family: Pretendard, Inter, system-ui, sans-serif; }
+    main { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 72px 0; }
+    .eyebrow { color: var(--accent); letter-spacing: .12em; font-size: 12px; font-weight: 700; }
+    h1 { margin: 12px 0; font-size: clamp(36px, 7vw, 68px); line-height: 1.05; letter-spacing: -.045em; }
+    .lead { max-width: 650px; color: var(--muted); font-size: 18px; line-height: 1.7; }
+    form { display: flex; gap: 10px; margin: 36px 0; }
+    input { flex: 1; min-width: 0; padding: 17px 18px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: #151d19; font-size: 16px; }
+    input:focus { outline: 2px solid #3b8f66; border-color: transparent; }
+    button { padding: 0 24px; border: 0; border-radius: 12px; background: var(--accent); color: #072014; font-weight: 800; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .panel { display: none; margin-top: 24px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: #121916; }
+    #answer { white-space: pre-wrap; line-height: 1.75; }
+    .sources { display: grid; gap: 12px; margin-top: 24px; }
+    .source { padding: 16px; border-radius: 12px; background: #19221e; }
+    .source-head { display: flex; justify-content: space-between; gap: 12px; color: var(--accent); font-weight: 700; }
+    .source p { color: #c8d1cc; white-space: pre-wrap; line-height: 1.55; }
+    .meta, footer { color: var(--muted); font-size: 13px; }
+    .error { color: #ff9b93; }
+    footer { margin-top: 36px; }
+    @media (max-width: 560px) { main { padding-top: 44px; } form { flex-direction: column; } button { min-height: 52px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">GROUNDED FINANCIAL EDUCATION</div>
+    <h1>주식 용어를<br>근거와 함께 이해하세요.</h1>
+    <p class="lead">한국어 질문을 의미 기반으로 검색하고, 관련 용어와 출처를 근거로 AI가 쉽게 설명합니다.</p>
+    <form id="chat-form">
+      <input id="question" maxlength="500" required aria-label="질문" placeholder="예: 기업의 이익 대비 주가 수준은 어떻게 보나요?">
+      <button id="submit" type="submit">질문하기</button>
+    </form>
+    <section id="result" class="panel" aria-live="polite">
+      <div id="answer"></div>
+      <div id="sources" class="sources"></div>
+    </section>
+    <footer>본 서비스는 투자교육 목적이며 투자 권유가 아닙니다. 답변과 함께 표시된 데이터 근거를 확인하세요.</footer>
+  </main>
+  <script>
+    const form = document.querySelector('#chat-form');
+    const input = document.querySelector('#question');
+    const submit = document.querySelector('#submit');
+    const result = document.querySelector('#result');
+    const answer = document.querySelector('#answer');
+    const sources = document.querySelector('#sources');
+
+    const escapeHtml = (value) => {
+      const node = document.createElement('div');
+      node.textContent = value;
+      return node.innerHTML;
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      submit.textContent = '답변 생성 중…';
+      result.style.display = 'block';
+      answer.className = '';
+      answer.textContent = '관련 용어를 검색하고 있습니다.';
+      sources.innerHTML = '';
+      try {
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: input.value })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || '요청을 처리하지 못했습니다.');
+        answer.textContent = data.answer;
+        sources.innerHTML = data.sources.map((item) => `
+          <article class="source">
+            <div class="source-head"><span>${escapeHtml(item.term)} · ${escapeHtml(item.english)}</span><span>${(item.score * 100).toFixed(1)}%</span></div>
+            <p>${escapeHtml(item.content)}</p>
+            <div class="meta">${escapeHtml(item.category)} · 출처 ${escapeHtml(item.source_name)} · ${escapeHtml(item.data_version)}</div>
+          </article>`).join('');
+      } catch (error) {
+        answer.className = 'error';
+        answer.textContent = error.message;
+      } finally {
+        submit.disabled = false;
+        submit.textContent = '질문하기';
+      }
+    });
+  </script>
+</body>
+</html>

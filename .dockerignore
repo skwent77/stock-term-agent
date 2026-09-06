@@ -1,0 +1,16 @@
+.git
+.venv
+.chroma_db
+.codex
+.claude
+.vscode
+.idea
+__pycache__
+*.pyc
+*.ipynb
+sample_docs
+evals
+docs
+.env
+llamaindex-chroma-rag/.venv
+llamaindex-chroma-rag/.idea

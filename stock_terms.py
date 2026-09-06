@@ -4,15 +4,16 @@
 """
 
 import json
-import os
 from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_core.documents import Document
+
+from chroma_connection import ChromaServerConfig, create_chroma_http_client
+from term_documents import preprocess_terms
 
 TERMS_FILE = Path(__file__).parent / "stock_terms.json"
-CHROMA_DIR = Path(__file__).parent / ".chroma_db"
 EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
+DATA_VERSION = "legacy-v1"
 
 CATEGORIES = [
     "기본 개념",
@@ -41,31 +42,20 @@ def create_embeddings() -> HuggingFaceEmbeddings:
 
 def build_vectorstore(terms: list[dict]) -> Chroma:
     embeddings = create_embeddings()
-
-    docs = []
-    for t in terms:
-        content = (
-            f"{t['term']} ({t['english']})\n"
-            f"정의: {t['definition']}\n"
-            f"예시: {t['example']}"
-        )
-        docs.append(
-            Document(
-                page_content=content,
-                metadata={
-                    "term": t["term"],
-                    "english": t["english"],
-                    "category": t["category"],
-                    "definition": t["definition"],
-                    "example": t["example"],
-                },
-            )
-        )
+    config = ChromaServerConfig.from_env()
+    client = create_chroma_http_client(config)
+    docs = preprocess_terms(
+        terms,
+        source_name=TERMS_FILE.name,
+        data_version=DATA_VERSION,
+    )
 
     vectorstore = Chroma.from_documents(
         documents=docs,
         embedding=embeddings,
-        persist_directory=str(CHROMA_DIR),
+        ids=[document.id for document in docs],
+        client=client,
+        collection_name=config.collection_name,
         collection_metadata={"hnsw:space": "cosine"},
     )
     return vectorstore
@@ -73,8 +63,11 @@ def build_vectorstore(terms: list[dict]) -> Chroma:
 
 def load_vectorstore() -> Chroma:
     embeddings = create_embeddings()
+    config = ChromaServerConfig.from_env()
+    client = create_chroma_http_client(config)
     return Chroma(
-        persist_directory=str(CHROMA_DIR),
+        client=client,
+        collection_name=config.collection_name,
         embedding_function=embeddings,
     )
 
@@ -85,17 +78,22 @@ def rebuild_vectorstore(vectorstore: Chroma, terms: list[dict]) -> Chroma:
     return build_vectorstore(terms)
 
 
-def format_term(meta: dict, score: float | None = None) -> str:
+def format_term(
+    meta: dict,
+    page_content: str,
+    score: float | None = None,
+) -> str:
     lines = [
         f"\n{'='*50}",
         f"  {meta['term']}  ({meta['english']})",
         f"  [{meta['category']}]",
         f"{'='*50}",
-        f"  정의: {meta['definition']}",
-        f"  예시: {meta['example']}",
+        page_content,
     ]
+
     if score is not None:
         lines.append(f"  유사도: {score:.1%}")
+
     return "\n".join(lines)
 
 
@@ -106,7 +104,7 @@ def search(vectorstore: Chroma, query: str, top_k: int = 3) -> None:
         return
     print(f"\n['{query}' 검색 결과 — 상위 {top_k}개]")
     for doc, score in results:
-        print(format_term(doc.metadata, score))
+        print(format_term(doc.metadata, doc.page_content, score))
 
 
 def list_by_category(vectorstore: Chroma, category: str) -> None:
@@ -115,8 +113,8 @@ def list_by_category(vectorstore: Chroma, category: str) -> None:
         print(f"'{category}' 카테고리에 해당하는 용어가 없습니다.")
         return
     print(f"\n[카테고리: {category}] — 총 {len(results['metadatas'])}개")
-    for meta in results["metadatas"]:
-        print(format_term(meta))
+    for meta, page_content in zip(results["metadatas"], results["documents"]):
+        print(format_term(meta, page_content))
 
 
 def show_all(vectorstore: Chroma) -> None:
@@ -149,9 +147,9 @@ def print_help() -> None:
 def main():
     print("주식 용어 설명집 로딩 중...")
 
-    if CHROMA_DIR.exists() and any(CHROMA_DIR.iterdir()):
-        print("기존 DB 불러오는 중...")
-        vs = load_vectorstore()
+    vs = load_vectorstore()
+    if vs.get(limit=1)["ids"]:
+        print("Chroma 서버의 기존 컬렉션을 불러왔습니다.")
     else:
         print("첫 실행: 임베딩 DB 구축 중 (1~2분 소요)...")
         terms = load_terms()
@@ -179,6 +177,7 @@ def main():
             break
         elif cmd == "search" and arg:
             search(vs, arg)
+            # 내가 키워야 하는 건 이 서치쪽
         elif cmd == "cat" and arg:
             list_by_category(vs, arg)
         elif cmd == "all":

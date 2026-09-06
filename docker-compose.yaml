@@ -1,0 +1,25 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8000"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CHROMA_HOST: chroma
+      CHROMA_PORT: 8000
+      CHROMA_SSL: "false"
+      CHROMA_COLLECTION: stock-terms
+    depends_on:
+      - chroma
+    restart: unless-stopped
+
+  chroma:
+    image: chromadb/chroma:1.5.9
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/data
+    restart: unless-stopped
+
+volumes:
+  chroma-data:
