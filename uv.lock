@@ -6,12 +6,6 @@ resolution-markers = [
     "sys_platform != 'linux'",
 ]
 
-[manifest]
-members = [
-    "leasemo",
-    "llamaindex-chroma-rag",
-]
-
 [[package]]
 name = "aiohappyeyeballs"
 version = "2.7.1"
@@ -1019,11 +1013,6 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.14.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.4" },
 ]
-
-[[package]]
-name = "llamaindex-chroma-rag"
-version = "0.1.0"
-source = { virtual = "llamaindex-chroma-rag" }
 
 [[package]]
 name = "markdown-it-py"

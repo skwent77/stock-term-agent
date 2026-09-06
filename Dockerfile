@@ -14,8 +14,7 @@ RUN useradd --create-home --uid 10001 appuser && chown appuser:appuser /app
 USER appuser
 
 COPY --chown=appuser:appuser pyproject.toml uv.lock ./
-COPY --chown=appuser:appuser llamaindex-chroma-rag/pyproject.toml llamaindex-chroma-rag/pyproject.toml
-RUN uv sync --frozen --no-dev --no-install-workspace
+RUN uv sync --frozen --no-dev --no-install-project
 
 COPY --chown=appuser:appuser main.py web_app.py web_chat_service.py rag_chat.py stock_terms.py ./
 COPY --chown=appuser:appuser chroma_connection.py term_documents.py stock_terms.json ./
